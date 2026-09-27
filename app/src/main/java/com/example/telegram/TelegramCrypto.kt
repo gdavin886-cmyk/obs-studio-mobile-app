@@ -100,27 +100,33 @@ object TelegramCrypto {
      * c_i = m_i ^ AES_encrypt(m_{i-1} ^ c_{i-1})
      */
     fun aesIgeEncrypt(plaintext: ByteArray, key: ByteArray, iv: ByteArray): ByteArray {
+        val blockSize = 16
+        val paddedSize = if (plaintext.size % blockSize == 0) plaintext.size else ((plaintext.size / blockSize) + 1) * blockSize
+        val input = if (paddedSize == plaintext.size) plaintext else {
+            val p = ByteArray(paddedSize)
+            System.arraycopy(plaintext, 0, p, 0, plaintext.size)
+            p
+        }
         val cipher = Cipher.getInstance("AES/ECB/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"))
 
-        val blockSize = 16
-        val ciphertext = ByteArray(plaintext.size)
+        val ciphertext = ByteArray(input.size)
         var iv1 = ByteArray(blockSize)
         var iv2 = ByteArray(blockSize)
         System.arraycopy(iv, 0, iv1, 0, blockSize)
         System.arraycopy(iv, blockSize, iv2, 0, blockSize)
 
         val block = ByteArray(blockSize)
-        for (i in 0 until plaintext.size step blockSize) {
+        for (i in 0 until input.size step blockSize) {
             for (j in 0 until blockSize) {
-                block[j] = (plaintext[i + j].toInt() xor iv1[j].toInt()).toByte()
+                block[j] = (input[i + j].toInt() xor iv1[j].toInt()).toByte()
             }
             val encrypted = cipher.doFinal(block)
             for (j in 0 until blockSize) {
                 ciphertext[i + j] = (encrypted[j].toInt() xor iv2[j].toInt()).toByte()
             }
             System.arraycopy(ciphertext, i, iv1, 0, blockSize)
-            System.arraycopy(plaintext, i, iv2, 0, blockSize)
+            System.arraycopy(input, i, iv2, 0, blockSize)
         }
         return ciphertext
     }
@@ -130,27 +136,33 @@ object TelegramCrypto {
      * m_i = c_i ^ AES_decrypt(c_{i-1} ^ m_{i-1})
      */
     fun aesIgeDecrypt(ciphertext: ByteArray, key: ByteArray, iv: ByteArray): ByteArray {
+        val blockSize = 16
+        val paddedSize = if (ciphertext.size % blockSize == 0) ciphertext.size else ((ciphertext.size / blockSize) + 1) * blockSize
+        val input = if (paddedSize == ciphertext.size) ciphertext else {
+            val p = ByteArray(paddedSize)
+            System.arraycopy(ciphertext, 0, p, 0, ciphertext.size)
+            p
+        }
         val cipher = Cipher.getInstance("AES/ECB/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"))
 
-        val blockSize = 16
-        val plaintext = ByteArray(ciphertext.size)
+        val plaintext = ByteArray(input.size)
         var iv1 = ByteArray(blockSize)
         var iv2 = ByteArray(blockSize)
         System.arraycopy(iv, blockSize, iv1, 0, blockSize)
         System.arraycopy(iv, 0, iv2, 0, blockSize)
 
         val block = ByteArray(blockSize)
-        for (i in 0 until ciphertext.size step blockSize) {
+        for (i in 0 until input.size step blockSize) {
             for (j in 0 until blockSize) {
-                block[j] = (ciphertext[i + j].toInt() xor iv1[j].toInt()).toByte()
+                block[j] = (input[i + j].toInt() xor iv1[j].toInt()).toByte()
             }
             val decrypted = cipher.doFinal(block)
             for (j in 0 until blockSize) {
                 plaintext[i + j] = (decrypted[j].toInt() xor iv2[j].toInt()).toByte()
             }
             System.arraycopy(plaintext, i, iv1, 0, blockSize)
-            System.arraycopy(ciphertext, i, iv2, 0, blockSize)
+            System.arraycopy(input, i, iv2, 0, blockSize)
         }
         return plaintext
     }

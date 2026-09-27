@@ -34,6 +34,7 @@ fun StreamDestinationsDialog(
     onToggleDestination: (String) -> Unit,
     onUpdateDestination: (StreamDestination) -> Unit,
     onUpdateEncoder: (EncoderConfig) -> Unit,
+    onTestConnection: (String) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Output Platforms, 1: Hardware Encoder
@@ -96,20 +97,21 @@ fun StreamDestinationsDialog(
                             fontFamily = FontFamily.Monospace
                         )
                         Text(
-                            text = "Multi-Platform RTMPS Ingest & Hardware Acceleration",
+                            text = "Real Live RTMP Ingest & Hardware Acceleration",
                             color = StudioCyan,
-                            fontSize = 9.sp
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            tint = TextMuted,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -117,35 +119,47 @@ fun StreamDestinationsDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Navigation Tabs
-                TabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = StudioObsidian,
-                    contentColor = StudioCyan
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(StudioCardBg)
+                        .padding(2.dp)
                 ) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        text = {
-                            Text(
-                                text = "DESTINATIONS (${destinations.count { it.isEnabled }})",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        text = {
-                            Text(
-                                text = "HW ENCODER",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(if (selectedTab == 0) StudioCyan else Color.Transparent)
+                            .clickable { selectedTab = 0 }
+                            .padding(vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "DESTINATIONS",
+                            color = if (selectedTab == 0) StudioObsidian else TextMuted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(if (selectedTab == 1) StudioPurple else Color.Transparent)
+                            .clickable { selectedTab = 1 }
+                            .padding(vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "HARDWARE ENCODER",
+                            color = if (selectedTab == 1) Color.White else TextMuted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -164,6 +178,7 @@ fun StreamDestinationsDialog(
                                 onUpdateUrl = { newUrl ->
                                     onUpdateDestination(dest.copy(serverUrl = newUrl))
                                 },
+                                onTestConnection = { onTestConnection(dest.id) },
                                 onOpenTelegramSetup = { showTelegramDialog = true }
                             )
                         }
@@ -378,6 +393,7 @@ private fun DestinationCard(
     onToggle: () -> Unit,
     onUpdateKey: (String) -> Unit,
     onUpdateUrl: (String) -> Unit,
+    onTestConnection: () -> Unit,
     onOpenTelegramSetup: (() -> Unit)? = null
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -448,9 +464,7 @@ private fun DestinationCard(
                         }
                     }
                     Text(
-                        text = if (isTelegram && destination.serverUrl.isBlank()) {
-                            if (tgChannel != null) "Channel: ${tgChannel?.title} (Dynamic MTProto)" else "Official MTProto Ingest (Not configured)"
-                        } else destination.serverUrl,
+                        text = if (destination.serverUrl.isNotBlank()) destination.serverUrl else destination.platform.defaultUrl,
                         color = TextMuted,
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
@@ -475,32 +489,32 @@ private fun DestinationCard(
                         )
                     }
                     Spacer(modifier = Modifier.width(6.dp))
-                } else if (isLive && destination.isEnabled && destination.connectionStatus == ConnectionStatus.CONNECTING) {
+                } else if (destination.isTestingConnection) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
-                            .background(StudioCyan.copy(alpha = 0.5f))
+                            .background(StudioCyan.copy(alpha = 0.3f))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "CONNECTING...",
-                            color = Color.White,
+                            text = "TESTING...",
+                            color = StudioCyan,
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
                     }
                     Spacer(modifier = Modifier.width(6.dp))
-                } else if (isLive && destination.isEnabled && destination.connectionStatus == ConnectionStatus.ERROR) {
+                } else if (destination.connectionStatus == ConnectionStatus.CONNECTED && !isLive) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
-                            .background(Color.Red)
+                            .background(Color(0xFF0F3A22))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "ERROR",
-                            color = Color.White,
+                            text = "ONLINE (${destination.latencyMs}ms)",
+                            color = StudioNeonGreen,
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
@@ -520,72 +534,86 @@ private fun DestinationCard(
                 )
             }
 
-            // Connection Error Message Display
-            if (isLive && destination.isEnabled && destination.connectionStatus == ConnectionStatus.ERROR && !destination.connectionMessage.isNullOrEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
+            // Real Connection Status Message Display (Always visible if message exists)
+            if (!destination.connectionMessage.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                val isSuccess = destination.connectionStatus == ConnectionStatus.CONNECTED
+                val isError = destination.connectionStatus == ConnectionStatus.ERROR
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF330000))
+                        .background(if (isSuccess) Color(0xFF0C2A18) else if (isError) Color(0xFF330000) else StudioDarkSurface)
+                        .border(
+                            1.dp,
+                            if (isSuccess) StudioNeonGreen.copy(alpha = 0.5f) else if (isError) Color.Red.copy(alpha = 0.5f) else StudioCyan.copy(alpha = 0.3f),
+                            RoundedCornerShape(4.dp)
+                        )
                         .padding(6.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ErrorOutline,
-                        contentDescription = "Error",
-                        tint = Color.Red,
+                        imageVector = if (isSuccess) Icons.Default.CheckCircle else if (isError) Icons.Default.ErrorOutline else Icons.Default.Info,
+                        contentDescription = null,
+                        tint = if (isSuccess) StudioNeonGreen else if (isError) Color.Red else StudioCyan,
                         modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = destination.connectionMessage,
-                        color = Color(0xFFFF9999),
+                        color = if (isSuccess) Color(0xFF86EFAC) else if (isError) Color(0xFFFF9999) else StudioCyan,
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
                         lineHeight = 12.sp
                     )
                 }
-            } else if (isLive && destination.isEnabled && destination.connectionStatus == ConnectionStatus.CONNECTED && !destination.connectionMessage.isNullOrEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircleOutline,
-                        contentDescription = "Connected",
-                        tint = StudioCyan,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = destination.connectionMessage,
-                        color = StudioCyan,
-                        fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
+            }
+
+            // Real Connection Test Button
+            Spacer(modifier = Modifier.height(6.dp))
+            Button(
+                onClick = onTestConnection,
+                enabled = !destination.isTestingConnection,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF162032),
+                    contentColor = StudioCyan
+                ),
+                shape = RoundedCornerShape(6.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, StudioCyan.copy(alpha = 0.5f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(34.dp)
+                    .testTag("test_conn_${destination.id}")
+            ) {
+                if (destination.isTestingConnection) {
+                    CircularProgressIndicator(modifier = Modifier.size(12.dp), color = StudioCyan, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Connecting live socket...", fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                } else {
+                    Icon(imageVector = Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(14.dp), tint = StudioCyan)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("⚡ Test Real RTMP Connection", fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 }
             }
 
             // Telegram specific setup button
             if (isTelegram) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Button(
+                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedButton(
                     onClick = { onOpenTelegramSetup?.invoke() },
-                    colors = ButtonDefaults.buttonColors(containerColor = TelegramBlue),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TelegramBlue),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, TelegramBlue),
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(34.dp)
                         .testTag("open_telegram_setup_btn")
                 ) {
-                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(12.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (tgChannel != null) "Configure Live: ${tgChannel?.title}" else "Setup Telegram Channel Live (MTProto API)",
-                        fontSize = 11.sp,
+                        text = if (tgChannel != null) "Telegram MTProto: ${tgChannel?.title}" else "Telegram MTProto API Setup",
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -598,7 +626,7 @@ private fun DestinationCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { isExpanded = !isExpanded }
-                    .padding(vertical = 2.dp)
+                    .padding(vertical = 4.dp)
             ) {
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -608,7 +636,7 @@ private fun DestinationCard(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = if (isExpanded) "Hide Configuration" else if (isTelegram) "View Telegram Live Endpoint Details" else "Edit Server URL & Stream Key",
+                    text = if (isExpanded) "Hide Configuration" else "Edit Server URL & Stream Key",
                     color = StudioCyan,
                     fontSize = 10.sp
                 )
@@ -616,75 +644,51 @@ private fun DestinationCard(
 
             if (isExpanded) {
                 Spacer(modifier = Modifier.height(6.dp))
-                if (isTelegram) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = StudioDarkSurface),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, TelegramBlue.copy(alpha = 0.5f))
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "OFFICIAL TELEGRAM MTPROTO ENDPOINT",
-                                color = TelegramBlue,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
-                            )
-                            Text(
-                                text = "Dynamic Ingest: ${destination.serverUrl.ifBlank { "Auto-assigned via phone.getGroupCallStreamRtmpUrl" }}",
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                            Text(
-                                text = "Stream Key: ••••••••••••••••••••",
-                                color = StudioNeonGreen,
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                            Text(
-                                text = "✓ Key secured in memory; never exposed in Logcat or logs.",
-                                color = TextMuted,
-                                fontSize = 9.sp
-                            )
-                        }
-                    }
-                } else {
-                    OutlinedTextField(
-                        value = serverUrlInput,
-                        onValueChange = {
-                            serverUrlInput = it
-                            onUpdateUrl(it)
-                        },
-                        label = { Text("Server URL", fontSize = 10.sp) },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color(0xFFCBD5E1),
-                            focusedBorderColor = StudioCyan,
-                            unfocusedBorderColor = StudioCardBorder
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("url_input_${destination.id}")
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    OutlinedTextField(
-                        value = streamKeyInput,
-                        onValueChange = {
-                            streamKeyInput = it
-                            onUpdateKey(it)
-                        },
-                        label = { Text("Stream Key", fontSize = 10.sp) },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color(0xFFCBD5E1),
-                            focusedBorderColor = StudioCyan,
-                            unfocusedBorderColor = StudioCardBorder
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("key_input_${destination.id}")
+                OutlinedTextField(
+                    value = serverUrlInput,
+                    onValueChange = {
+                        serverUrlInput = it
+                        onUpdateUrl(it)
+                    },
+                    label = { Text("Server URL", fontSize = 10.sp) },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color(0xFFCBD5E1),
+                        focusedBorderColor = StudioCyan,
+                        unfocusedBorderColor = StudioCardBorder
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("url_input_${destination.id}")
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = streamKeyInput,
+                    onValueChange = {
+                        streamKeyInput = it
+                        onUpdateKey(it)
+                    },
+                    label = { Text("Stream Key", fontSize = 10.sp) },
+                    placeholder = { Text("Enter your real stream key", fontSize = 10.sp, color = TextMuted) },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color(0xFFCBD5E1),
+                        focusedBorderColor = StudioCyan,
+                        unfocusedBorderColor = StudioCardBorder
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("key_input_${destination.id}")
+                )
+                if (streamKeyInput.isBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "ℹ Enter your real Stream Key from ${destination.platform.platformName} before clicking GO LIVE.",
+                        color = Color(0xFFFBBF24),
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace
                     )
                 }
             }

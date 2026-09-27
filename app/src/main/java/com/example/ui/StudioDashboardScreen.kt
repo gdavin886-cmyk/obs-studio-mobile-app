@@ -470,6 +470,7 @@ fun StudioDashboardScreen(
             onToggleDestination = { viewModel.toggleDestination(it) },
             onUpdateDestination = { viewModel.updateDestination(it) },
             onUpdateEncoder = { viewModel.updateEncoderConfig(it) },
+            onTestConnection = { viewModel.testDestinationConnection(it) },
             onDismiss = { showDestinationsDialog = false }
         )
     }

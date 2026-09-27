@@ -139,7 +139,10 @@ fun TelegramLiveDialog(
                         )
                     }
 
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.testTag("close_tg_dialog_btn")
+                    ) {
                         Icon(Icons.Default.Close, contentDescription = "Close", tint = TextSecondary)
                     }
                 }

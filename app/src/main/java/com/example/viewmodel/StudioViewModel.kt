@@ -111,27 +111,27 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             id = "dest_twitch",
             platform = DestinationPlatform.TWITCH,
             serverUrl = "rtmps://live.twitch.tv/app/",
-            streamKey = "live_928174_uJ8aBqZkXm91Kpl",
+            streamKey = "",
             isEnabled = true
         ),
         StreamDestination(
             id = "dest_youtube",
             platform = DestinationPlatform.YOUTUBE,
             serverUrl = "rtmps://a.rtmp.youtube.com/live2",
-            streamKey = "yt_live_kx89_4721_mqqb",
-            isEnabled = true
+            streamKey = "",
+            isEnabled = false
+        ),
+        StreamDestination(
+            id = "dest_telegram",
+            platform = DestinationPlatform.TELEGRAM,
+            serverUrl = "rtmps://dc4-1.rtmp.t.me/s/",
+            streamKey = "",
+            isEnabled = false
         ),
         StreamDestination(
             id = "dest_okru",
             platform = DestinationPlatform.OK_RU,
             serverUrl = "rtmp://vsu.okcdn.ru/input/",
-            streamKey = "Custom*",
-            isEnabled = true
-        ),
-        StreamDestination(
-            id = "dest_telegram",
-            platform = DestinationPlatform.TELEGRAM,
-            serverUrl = "",
             streamKey = "",
             isEnabled = false
         ),
@@ -139,14 +139,14 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             id = "dest_facebook",
             platform = DestinationPlatform.FACEBOOK,
             serverUrl = "rtmps://live-api-s.facebook.com:443/rtmp/",
-            streamKey = "FB-847291038472-0-LIVE",
+            streamKey = "",
             isEnabled = false
         ),
         StreamDestination(
             id = "dest_custom",
             platform = DestinationPlatform.CUSTOM_RTMPS,
-            serverUrl = "Server url*",
-            streamKey = "Broadcast key*",
+            serverUrl = "rtmp://",
+            streamKey = "",
             isEnabled = false
         )
     )
@@ -507,7 +507,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 
                 try {
-                    com.example.stream.StreamManager.startStream(fullUrl, config.resolution.width, config.resolution.height, config.fps, config.targetBitrateKbps, config.audioBitrateKbps)
+                    com.example.stream.StreamManager.startStream(getApplication(), fullUrl, config.resolution.width, config.resolution.height, config.fps, config.targetBitrateKbps, config.audioBitrateKbps)
                 } catch (e: Exception) {
                     com.example.stream.StreamManager.onConnectionFailed?.invoke(e.localizedMessage ?: "Unknown error")
                 }
@@ -682,6 +682,60 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     preferences.saveDestination(updated)
                     updated
                 } else it
+            }
+        }
+    }
+
+    fun testDestinationConnection(destId: String) {
+        val dest = _destinations.value.find { it.id == destId } ?: return
+        if (dest.serverUrl.isBlank() || dest.serverUrl.startsWith("Server url") || dest.serverUrl == "rtmp://") {
+            _destinations.update { list ->
+                list.map {
+                    if (it.id == destId) {
+                        it.copy(
+                            isTestingConnection = false,
+                            connectionStatus = ConnectionStatus.ERROR,
+                            connectionMessage = "Please enter a valid Server URL first"
+                        )
+                    } else it
+                }
+            }
+            return
+        }
+
+        _destinations.update { list ->
+            list.map {
+                if (it.id == destId) {
+                    it.copy(
+                        isTestingConnection = true,
+                        connectionStatus = ConnectionStatus.CONNECTING,
+                        connectionMessage = "Testing live network connection to ${dest.serverUrl}..."
+                    )
+                } else it
+            }
+        }
+
+        viewModelScope.launch {
+            val result = com.example.stream.RtmpConnectionTester.testConnection(dest.serverUrl)
+            _destinations.update { list ->
+                list.map {
+                    if (it.id == destId) {
+                        if (result.success) {
+                            it.copy(
+                                isTestingConnection = false,
+                                connectionStatus = ConnectionStatus.CONNECTED,
+                                latencyMs = result.latencyMs.toInt(),
+                                connectionMessage = result.message
+                            )
+                        } else {
+                            it.copy(
+                                isTestingConnection = false,
+                                connectionStatus = ConnectionStatus.ERROR,
+                                connectionMessage = result.message
+                            )
+                        }
+                    } else it
+                }
             }
         }
     }

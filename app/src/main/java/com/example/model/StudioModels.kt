@@ -39,9 +39,9 @@ enum class DestinationPlatform(val platformName: String, val defaultUrl: String)
     TWITCH("Twitch", "rtmps://live.twitch.tv/app/"),
     YOUTUBE("YouTube Live", "rtmps://a.rtmp.youtube.com/live2"),
     OK_RU("OK.ru (Odnoklassniki)", "rtmp://vsu.okcdn.ru/input/"),
-    TELEGRAM("Telegram Live", ""),
+    TELEGRAM("Telegram Live", "rtmps://dc4-1.rtmp.t.me/s/"),
     FACEBOOK("Facebook Live", "rtmps://live-api-s.facebook.com:443/rtmp/"),
-    CUSTOM_RTMPS("Custom RTMPS", "Server url*")
+    CUSTOM_RTMPS("Custom RTMPS", "rtmp://")
 }
 
 data class StudioSettings(
@@ -66,6 +66,7 @@ data class StreamDestination(
     val streamKey: String,
     val isEnabled: Boolean = true,
     val isLive: Boolean = false,
+    val isTestingConnection: Boolean = false,
     val connectionStatus: ConnectionStatus = ConnectionStatus.IDLE,
     val connectionMessage: String? = null,
     val currentBitrateKbps: Int = 0,
